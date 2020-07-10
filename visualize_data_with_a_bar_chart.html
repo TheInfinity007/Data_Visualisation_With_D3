@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Bar Chart</title>
+	<script src="https://d3js.org/d3.v5.min.js"></script>
+	<style type="text/css">
+		*
+		{
+			margin:0;
+			padding:0;
+		}
+		body
+		{
+			font-family: "Roboto";
+  			background-color: #708090;
+  			display: flex;
+  			align-items: center;
+  			justify-content: center;
+  			min-height: 100vh;
+  			flex-direction: column;
+  			background: #bb5f14;
+		}
+		.container
+		{
+			height:560px;
+			width:900px;
+			background:#eee;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			align-self: center;
+			position: relative;
+			padding:20px;
+		}
+		.container #title
+		{
+			text-align: center;
+			font-size: 2.5em;
+			font-weight: bold;
+			color:#740b8a;
+		}
+		.container #chart
+		{
+			position: absolute;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			flex-direction: column;
+			top:6em;
+		}
+		#tooltip
+		{
+			position: absolute;
+			width:150px;
+			height: 50px;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			padding: 2px;
+			font-size: 16px;
+		  	background: lightsteelblue;
+		  	box-shadow: 1px 1px 10px;
+		  	border-radius: 2px;
+		  	pointer-events: none;
+		  	opacity:0;
+		}
+		#x-axis path,
+		#y-axis path
+		{
+		  	stroke: black;
+		  	stroke-width: 1;
+		  	fill: none; 
+		}
+		.axis-title-y
+		{
+			position: absolute;
+			top:80px;
+			left:0;
+		}
+		.axis-title-x
+		{
+			position: absolute;
+			bottom:10px;
+			left:400px;
+		}
+		.info
+		{
+			position: absolute;
+			bottom:-40px;
+			right:0;
+			font-size: 0.8em;
+		}
+		.bar:hover
+		{
+			fill:#bb5f14;
+		}
+	</style>
+</head>
+<body>
+	<div class="container">
+		<div id="title">India GDP</div>
+		<div id="chart"></div>
+	</div>
+	<script type="">
+		let url = "https://raw.githubusercontent.com/freeCodeCamp/ProjectReferenceData/master/GDP-data.json";
+
+		fetch(url).then(response => response.json()).then(data => {
+			console.log(data);
+			const dataset = data["data"];
+			const width = 800;
+			const height = 400;
+			const padding = 60;
+			const barWidth = width/272;				//(2015-1947)*4
+
+			d3.select("#chart").append("text").text("Gross Domestic Product").style("transform", "rotate(-90deg)").attr("class", "axis-title-y");
+			d3.select("#chart").append("text").text("Year").attr("class", "axis-title-x");
+			d3.select("#chart").append("text").text("More Information: http://www.bea.gov/national/pdf/nipaguid.pdf").attr("class", "info");
+
+			const tooltip = d3.select("#chart")
+										.append("div")
+										.attr("id", "tooltip")
+
+			const fromYear = parseInt(data.from_date.slice(0, 4));
+			const toYear = parseInt(data.to_date.slice(0, 4));
+
+			const years = dataset.map((item)=>{
+				let quarter;
+				let temp = item[0].slice(5, 7);
+				if(temp == "01")	quarter = "Q1"
+				else if(temp == "04") quarter = "Q2"
+				else if(temp == "07") quarter = "Q3"
+				else if(temp == "10") quarter = "Q4"
+				return item[0].slice(0,4) + " " + quarter;
+			})
+
+			const yearsDate = data.data.map(item => new Date(item[0]));
+			const xMax = new Date(d3.max(yearsDate));
+	      	xMax.setMonth(xMax.getMonth() + 3)
+
+	      	const GDP = data.data.map(item =>  item[1]);
+	      	const maxGDP = d3.max(GDP);
+	       	const minGDP = d3.min(GDP);
+
+			const xScale = d3.scaleTime().domain([d3.min(yearsDate), xMax]).range([padding, width-padding]);
+			const yScale = d3.scaleLinear()
+				.domain([0, maxGDP])
+				.range([height, 0]);
+
+			const xAxis = d3.axisBottom(xScale);
+			const yAxis = d3.axisLeft(yScale);
+
+			const svg = d3.select("#chart").append("svg").attr("width", width).attr("height", height+60).style("background", "#eee");
+
+			svg.append("g")
+				.attr("transform", "translate(0, "+ height + ")")
+	       		.call(xAxis)
+	       		.attr("id", "x-axis")
+
+	       	svg.append("g")
+	       		.attr("transform", "translate(60 , 0)")
+	       		.call(yAxis)
+	       		.attr("id", "y-axis")
+
+            const linearScale = d3.scaleLinear().domain([0, maxGDP]).range([0, height])
+            const scaledGDP = GDP.map(item => linearScale(item));
+
+	       	svg.selectAll("rect")
+	       		.data(scaledGDP)
+	       		.enter()
+	       		.append("rect")
+	       		.attr("x", (d, i)=>{
+	       			return xScale(yearsDate[i]);
+	       		})
+	       		.attr("y", (d, i)=>{
+	       			return height-d;
+	       		})
+	       		.attr("width", barWidth)
+	       		.attr("height", (d, i)=>{
+	       			return d;
+	       		})
+	       		.attr("fill", "#740b8a")
+	       		.attr("class", "bar")
+	       		.attr("data-date", (d, i) => dataset[i][0])
+	       		.attr("data-gdp", (d, i) => GDP[i])
+	       		.on("mouseover", function(d, i){
+	       			tooltip.transition()
+	       				.duration(200)
+	       				.style("opacity", .9);
+	       			tooltip.html(years[i] + "<br>$" + GDP[i].toFixed(1) + " Billion")
+	       				.attr("data-date", dataset[i][0])
+	       				.style("left", (i*barWidth)+"px")
+	       				.style("top", height - 100 + "px")
+	       				.style("transform", "translateX(60px)");
+	       		})
+	       		.on("mouseout", function(d){
+	       			tooltip.transition()
+	       				.duration(200)
+	       				.style("opacity", 0);
+	       		});
+		})
+	</script>
+</body>
+</html>
