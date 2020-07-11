@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>ScatterPlot Graph</title>
+	<script src="https://d3js.org/d3.v5.min.js"></script>
+	<style type="text/css">
+		*
+		{
+			margin:0;
+			padding:0;
+		}
+		body
+		{
+			font-family: "Roboto";
+  			background-color: #708090;
+  			display: flex;
+  			align-items: center;
+  			justify-content: center;
+  			min-height: 100vh;
+  			flex-direction: column;
+  			background: #bb5f14;
+		}
+		.container
+		{
+			height:560px;
+			width:900px;
+			background:#eee;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			align-self: center;
+			position: relative;
+			padding:20px;
+		}
+		.container #title
+		{
+			text-align: center;
+			font-size: 2.5em;
+			font-weight: bold;
+			color:#740b8a;
+		}
+		.container #chart
+		{
+			position: absolute;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			flex-direction: column;
+			top:6em;
+		}
+		#tooltip
+		{
+			position: absolute;
+			width:250px;
+			height: auto;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			padding: 5px;
+			font-size: 16px;
+		  	background: lightsteelblue;
+		  	box-shadow: 1px 1px 10px;
+		  	border-radius: 2px;
+		  	pointer-events: none;
+		  	opacity:0;
+		}
+		#x-axis path,
+		#y-axis path
+		{
+		  	stroke: black;
+		  	stroke-width: 1;
+		  	fill: none; 
+		}
+		.axis-title-y
+		{
+			position: absolute;
+			top:80px;
+			left:0;
+			font-size: 1.1em;
+		}
+		.axis-title-x
+		{
+			position: absolute;
+			bottom:10px;
+			left:400px;
+		}
+		#legend
+		{
+			position: relative;
+		}
+	</style>
+</head>
+<body>
+	<div class="container">
+		<div id="title">Doping in Professional Bicycle Racing</div>
+		<div id="chart"></div>
+	</div>
+	<script type="">
+		let url = "https://raw.githubusercontent.com/freeCodeCamp/ProjectReferenceData/master/cyclist-data.json";
+
+		fetch(url).then(response => response.json()).then(data => {
+
+			const dataset = data;
+			const width = 800;
+			const height = 400;
+			const padding = 60;
+
+			d3.select("#chart").append("text").text("Year").attr("class", "axis-title-x");
+			d3.select("#chart").append("text").text("Time in Minutes").attr("class", "axis-title-y").style("transform", "rotate(-90deg)").style("left", "-50px");
+
+			const tooltip = d3.select("#chart")
+										.append("div")
+										.attr("id", "tooltip")
+
+			const years = data.map(obj => obj["Year"] );
+			const times = data.map((obj) => {
+				let t = obj.Time.split(":");
+				return new Date(1970, 1, 1, 1, t[0], t[1]);
+			});
+
+			const formatYear = d3.format("d");
+			const formatTime = d3.timeFormat("%M:%S");
+
+			const xScale = d3.scaleLinear().domain([d3.min(years)-1, d3.max(years)+1]).range([padding, width-padding]);
+			const yMax = new Date(d3.max(times));
+			const yMin = new Date(d3.min(times));
+			const yScale = d3.scaleTime().domain([yMin, yMax]).range([6, height]);
+
+			const xAxis = d3.axisBottom(xScale).tickFormat(formatYear);
+			const yAxis = d3.axisLeft(yScale).tickFormat(formatTime);
+
+			const svg = d3.select("#chart").append("svg").attr("width", width).attr("height", height+60).style("background", "#eee");
+
+			svg.append("g")
+				.attr("transform", "translate(0, "+ height + ")")
+	       		.call(xAxis)
+	       		.attr("id", "x-axis")
+
+	       	svg.append("g")
+	       		.attr("transform", "translate(60 , 0)")
+	       		.call(yAxis)
+	       		.attr("id", "y-axis")
+
+	       	svg.selectAll("circle")
+	       		.data(dataset)
+	       		.enter()
+	       		.append("circle")
+	       		.attr("cx", (d, i)=>{
+	       			return xScale(years[i]);
+	       		})
+	       		.attr("cy", (d, i) => {
+	       			return yScale(times[i])
+	       		})
+	       		.attr("r", 6)
+	       		.attr("class", "dot")
+	       		.attr("data-xvalue", (d, i) => {
+	       			return years[i]
+	       		})
+	       		.attr("data-yvalue", (d, i)=> {
+	       			return times[i];
+	       		})
+	       		.style("fill", (d, i)=>{
+	       			if(d.Doping  == "")
+	       				return "#025e02";
+	       			return "#26718f"
+	       		})
+	       		.on("mouseover", function(d, i){
+	       			tooltip.attr("data-year", years[i])
+	       			tooltip.style("opacity", .9)
+	       			tooltip
+	       				.html(d.Name + ": " + d.Nationality +"<br>Year:" + d.Year +", Time: "+d.Time + (d.Doping?"<br><br>"+d.Doping:""))
+	       				.style("left", d3.event.pageX/2 + "px")
+	       				.style("top", (d3.event.pageY/2-28) + "px")
+	       		})
+	       		.on("mouseout", (d, i)=>{
+	       			tooltip.style("opacity", 0);
+	       		})
+
+	       	const legendContainer = svg.append("g").attr("id", "legend");
+	       	const legend1 =d3.select("#legend").append("g").attr("class", "legend-label-1");
+	       	const legend2 = d3.select("#legend").append("g").attr("class", "legend-label-2");
+
+	       	legend1
+	       		.append("rect")
+				.attr("x", width-18)
+				.attr("y", height/2 - 20)
+				.attr("height", 18)
+				.attr("width", 18)
+				.style("fill", "#26718f")
+
+			legend1
+				.append("text")
+				.attr("x", width-220)
+				.attr("y", height/2-5)
+				.text("Riders with doping allegations")
+
+			legend2
+	       		.append("rect")
+				.attr("x", width-18)
+				.attr("y", height/2 + 10)
+				.attr("height", 18)
+				.attr("width", 18)
+				.style("fill", "#025e02")
+
+			legend2
+				.append("text")
+				.attr("x", width-165)
+				.attr("y", height/2+25)
+				.text("No doping allegations")
+		})
+	</script>
+	<script type="text/javascript" src="https://cdn.freecodecamp.org/testable-projects-fcc/v1/bundle.js"></script>
+</body>
+</html>
